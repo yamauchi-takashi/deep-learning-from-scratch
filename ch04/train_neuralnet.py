@@ -7,7 +7,7 @@ from dataset.mnist import load_mnist
 from two_layer_net import TwoLayerNet
 
 # データの読み込み
-(x_train, t_train), (x_test, t_test) = load_mnist(normalize=True, one_hot_label=True)
+x_train, t_train, x_test, t_test = load_mnist(normalize=True, one_hot_label=True, flatten=True)
 
 network = TwoLayerNet(input_size=784, hidden_size=50, output_size=10)
 
@@ -21,6 +21,8 @@ train_acc_list = []
 test_acc_list = []
 
 iter_per_epoch = max(train_size / batch_size, 1)
+
+print(f'iterations per epoch = {iter_per_epoch}')
 
 for i in range(iters_num):
     batch_mask = np.random.choice(train_size, batch_size)
@@ -44,6 +46,11 @@ for i in range(iters_num):
         train_acc_list.append(train_acc)
         test_acc_list.append(test_acc)
         print("train acc, test acc | " + str(train_acc) + ", " + str(test_acc))
+
+# final result
+train_acc = network.accuracy(x_train, t_train)
+test_acc = network.accuracy(x_test, t_test)
+print("final train acc, test acc | " + str(train_acc) + ", " + str(test_acc))
 
 # グラフの描画
 markers = {'train': 'o', 'test': 's'}

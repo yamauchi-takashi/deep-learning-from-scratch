@@ -10,47 +10,35 @@ import os
 import numpy as np
 
 
-url_base = 'http://yann.lecun.com/exdb/mnist/'
-key_file = {
-    'train_img':'train-images-idx3-ubyte.gz',
-    'train_label':'train-labels-idx1-ubyte.gz',
-    'test_img':'t10k-images-idx3-ubyte.gz',
-    'test_label':'t10k-labels-idx1-ubyte.gz'
-}
+base_url = 'http://yann.lecun.com/exdb/mnist/'
+key_file = ['train-images-idx3-ubyte.gz', 'train-labels-idx1-ubyte.gz', 't10k-images-idx3-ubyte.gz', 't10k-labels-idx1-ubyte.gz']
 
 dataset_dir = os.path.dirname(os.path.abspath(__file__))
 save_file = dataset_dir + "/mnist.pkl"
 
-train_num = 60000
-test_num = 10000
-img_dim = (1, 28, 28)
-img_size = 784
-
-
-def _download(file_name):
-    file_path = dataset_dir + "/" + file_name
-
-    if os.path.exists(file_path):
-        return
-
-    print("Downloading " + file_name + " ... ")
-    headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:47.0) Gecko/20100101 Firefox/47.0"}
-    request = urllib.request.Request(url_base+file_name, headers=headers)
-    response = urllib.request.urlopen(request).read()
-    with open(file_path, mode='wb') as f:
-        f.write(response)
-    print("Done")
+img_dim = (1, 28, 28)  ## (色, 縦, 横)
+num_classes = 10  # テストラベルの数（クラスの数）を定義
 
 def download_mnist():
-    for v in key_file.values():
-       _download(v)
+    for file in key_file:
+        url = base_url + file
+        save_path = os.path.join(dataset_dir, file)
+        urllib.request.urlretrieve(url, save_path)
 
 def _load_label(file_name):
     file_path = dataset_dir + "/" + file_name
 
+    with gzip.open(file_path, 'rb') as file:
+        # マジックナンバーとヘッダー情報を読み込む
+        _ = file.read(4)
+        _ = int.from_bytes(file.read(4), byteorder='big') # ラベル数
+        
+        # ラベルデータを読み込み
+        label_data = file.read()
+    
+    # バイトデータをNumPyの配列に変換
     print("Converting " + file_name + " to NumPy Array ...")
-    with gzip.open(file_path, 'rb') as f:
-            labels = np.frombuffer(f.read(), np.uint8, offset=8)
+    labels = np.frombuffer(label_data, dtype=np.uint8)
     print("Done")
 
     return labels
@@ -58,20 +46,30 @@ def _load_label(file_name):
 def _load_img(file_name):
     file_path = dataset_dir + "/" + file_name
 
+    with gzip.open(file_path, 'rb') as file:
+        # マジックナンバーとヘッダー情報を読み込む
+        _ = file.read(4)
+        _ = int.from_bytes(file.read(4), byteorder='big')  # イメージ数
+        num_rows = int.from_bytes(file.read(4), byteorder='big')
+        num_cols = int.from_bytes(file.read(4), byteorder='big')
+        img_size = num_rows * num_cols
+        # 画像データを読み込み
+        image_data = file.read()
+        
+    # バイトデータをNumPyの配列に変換
     print("Converting " + file_name + " to NumPy Array ...")
-    with gzip.open(file_path, 'rb') as f:
-            data = np.frombuffer(f.read(), np.uint8, offset=16)
-    data = data.reshape(-1, img_size)
+    images = np.frombuffer(image_data, dtype=np.uint8)
+    images = images.reshape(-1, img_size)
     print("Done")
 
-    return data
+    return images
 
 def _convert_numpy():
     dataset = {}
-    dataset['train_img'] =  _load_img(key_file['train_img'])
-    dataset['train_label'] = _load_label(key_file['train_label'])
-    dataset['test_img'] = _load_img(key_file['test_img'])
-    dataset['test_label'] = _load_label(key_file['test_label'])
+    dataset['train_img'] =  _load_img(key_file[0])
+    dataset['train_label'] = _load_label(key_file[1])
+    dataset['test_img'] = _load_img(key_file[2])
+    dataset['test_label'] = _load_label(key_file[3])
 
     return dataset
 
@@ -83,12 +81,11 @@ def init_mnist():
         pickle.dump(dataset, f, -1)
     print("Done!")
 
-def _change_one_hot_label(X):
-    T = np.zeros((X.size, 10))
-    for idx, row in enumerate(T):
-        row[X[idx]] = 1
-
-    return T
+def _change_one_hot_label(labels):
+    num_labels = len(labels)
+    one_hot = np.zeros((num_labels, num_classes))
+    one_hot[np.arange(num_labels), labels] = 1
+    return one_hot
 
 
 def load_mnist(normalize=True, flatten=True, one_hot_label=False):
@@ -123,9 +120,10 @@ def load_mnist(normalize=True, flatten=True, one_hot_label=False):
 
     if not flatten:
          for key in ('train_img', 'test_img'):
-            dataset[key] = dataset[key].reshape(-1, 1, 28, 28)
+            # dataset[key] = dataset[key].reshape(-1, 1, 28, 28)
+            dataset[key] = dataset[key].reshape(-1, img_dim)
 
-    return (dataset['train_img'], dataset['train_label']), (dataset['test_img'], dataset['test_label'])
+    return dataset['train_img'], dataset['train_label'], dataset['test_img'], dataset['test_label']
 
 
 if __name__ == '__main__':
