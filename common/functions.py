@@ -29,6 +29,8 @@ def relu_grad(x):
     
 
 def softmax(x):
+    # x の次元は(バッチサイズ, クラス数)。axis=-1 は最後の軸に対する演算を表す。
+    # keepdims=True で演算結果が(バッチサイズ, 1)になる。
     x = x - np.max(x, axis=-1, keepdims=True)   # オーバーフロー対策
     return np.exp(x) / np.sum(np.exp(x), axis=-1, keepdims=True)
 
